@@ -11,7 +11,7 @@ __DEPENDENCIES__
 
 __USAGE__
 
-Simply run the script from the command line with `py trakGrab.py`
+Run the script from the command line 'python trakGrab7'
 The script prompts the user for an artist (their traktrain URL)
 and for a beat to download. The wildcard character (*) can be 
 used to download all of an artists available beats. 
@@ -23,3 +23,4 @@ is the location of the script.
 No rights reserved.
 
 ##### -dg 12.11.19
+##### -tek 12.15.22
