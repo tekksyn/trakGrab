@@ -1,84 +1,58 @@
-# trakGrab.py
-# Daniel Guilbert
-# 12.11.19
-# v1.0
+# trakGrab7.py
+# Daniel Guilbert and Teksyn
+# 12.15.22
+# v7.0
 
-from urllib.request import urlopen, URLError, Request
+from requests import get
 from bs4 import BeautifulSoup
 import re
 import os
 
-#Get information
-artist = input("What is the artist name? traktrain.com/")
-song = input("Which song would you like to download? (* for all) ")
+# Get information
+artist = input("Enter the artist name (e.g. greed): ")
+song = input("Enter the song name (e.g. Excavate): ")
 
-print("Connecting...")
-#get aws server url
-urlmatch = re.compile('(.)*var AWS_BASE_URL(.)*')
+print("Connecting to traktrain.com...")
+
+# Download the HTML of the website
 try:
-    html = urlopen("http://www.traktrain.com/"+artist).read().decode('utf-8')
-except URLError:
-    input("That artist cannot be found, please try again.")
+    html = get("http://www.traktrain.com/" + artist).text
+except Exception as e:
+    print("There was an error connecting to the website:")
+    print(e)
+    print("Please check your internet connection and try again.")
     exit()
 
 print("Connected!\n")
-m = urlmatch.search(html)
-baseUrl = m.group().split("'")[1]
 
+# Parse the HTML with BeautifulSoup
+soup = BeautifulSoup(html, 'html.parser')
+
+# Find the base URL of the AWS server
+base_url = soup.find("script", {"id": "aws-config"}).text
+base_url = base_url.split("AWS_BASE_URL")[1].split("'")[1]
+
+# Create the directory to store the downloaded songs
 pwd = os.getcwd()
 pwd = pwd + "\\songs\\" + artist + "\\"
-
 if not os.path.exists(pwd):
     os.makedirs(pwd)
 
-#if downloading single song
-if song != '*':    
-    #find song metadata and create full URL to mp3
-    try:
-        songmatch = re.compile("(.)*data-player-info='{\"name\":\""+song+"(.)*", re.I)
-        s = songmatch.search(html).group()
-        s = s.split("\"src\"")[1].split("\"")[1]
-        songUrl = baseUrl + s
-    except AttributeError:
+# If downloading a single song
+if song != '*':
+    # Find the song metadata and create the full URL to the mp3 file
+    song_div = soup.find("div", {"data-player-info": {"name": song}})
+    if song_div is None:
         print("That song could not be found, please try again.")
         exit()
 
+    song_src = song_div["data-player-info"]["src"]
+    song_url = base_url + song_src
+
     print("Downloading '" + song + "'")
-    #download file to $PWD\songs\{artist}\{song}.mp3
-    req = Request(songUrl)
+    # Download the mp3 file
+    req = Request(song_url)
     req.add_header('Referer', 'https://traktrain.com/') #traktrain blocks access unless this is set
 
-    song = re.sub(r'[^\w ]', '', song)
-    outfile = open(pwd+song+".mp3", 'wb')
-    outfile.write(urlopen(req).read())
-    outfile.close()
-
-else: #if downloading all songs
-    soup = BeautifulSoup(html, 'html.parser')
-    s = soup.findAll("div", {"class": 'player-track play js-player-legacy-select-track'})
-    for src in s:
-        src = str(src)
-
-        #exception handling because sometimes the html misformats (?)
-        try:
-            srcstr = src.split("\"src\"")[1].split("\"")[1]
-        except IndexError:
-            srcstr = src.split("&quot;src&quot;")[1].split("&quot;")[1]
-        songUrl = baseUrl + srcstr
-        try:
-            songname = src.split("\"name\"")[1].split("\"")[1]
-        except IndexError:
-            songname = src.split("&quot;name&quot;")[1].split("&quot;")[1]
-
-        print("Downloading '" + songname + "'")
-        
-        #download file to $PWD\songs\{artist}\{song}.mp3
-        req = Request(songUrl)
-        req.add_header('Referer', 'https://traktrain.com/') #traktrain blocks access unless this is set
-
-        songname = re.sub(r'[^\w|\s]', '', songname)
-        outfile = open(pwd+songname+".mp3", 'wb')
-        outfile.write(urlopen(req).read())
-        outfile.close()
-
-print("\nAll songs downloaded!")       
+    song_name = re.sub(r'[^\w|\s]', '', song)
+    outfile = open(pwd + song_name + ".mp3", 'wb')
